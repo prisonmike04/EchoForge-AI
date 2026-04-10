@@ -78,6 +78,13 @@ def _render_execution_results(results: list[dict[str, Any]]) -> None:
                         content = file_path.read_text(encoding="utf-8")
                         st.markdown("**File Content**")
                         st.code(content, language=_guess_language(file_path))
+
+                        mirror_dir = OUTPUT_DIR / "downloads"
+                        mirror_dir.mkdir(parents=True, exist_ok=True)
+                        mirror_path = mirror_dir / file_path.name
+                        mirror_path.write_text(content, encoding="utf-8")
+                        st.caption(f"Workspace copy saved at: {mirror_path}")
+
                         st.download_button(
                             label=f"Download {file_path.name}",
                             data=content,
