@@ -165,6 +165,63 @@ The execution pipeline auto-passes summary output into the file write step.
 
 ---
 
+## Bonus Features Checklist (explicit)
+
+This section maps each bonus requirement to what is implemented, where to find it, and how to verify it.
+
+### 1) Compound Commands ✅
+- **Implemented behavior**: one transcript can produce multiple actions executed in order.
+- **Where implemented**:
+  - [agent/intent.py](agent/intent.py) (`SYSTEM_PROMPT` + multi-action parsing + heuristic planning)
+  - [agent/pipeline.py](agent/pipeline.py) (`execute_actions` sequential execution)
+- **How to verify**:
+  - Say/upload: “Summarize this text and save it to summary.txt ...”
+  - In UI, confirm both planned actions appear and execute in sequence.
+
+### 2) Human-in-the-Loop ✅
+- **Implemented behavior**: file/code operations require manual checkbox approval before execution.
+- **Where implemented**:
+  - [app.py](app.py) ("Confirm action ..." checkboxes)
+  - [app.py](app.py) (execution filter only runs confirmed file/code intents)
+- **How to verify**:
+  - Analyze a file-creating command.
+  - Leave checkbox unchecked and click execute -> file op is skipped.
+  - Check box and run again -> action executes.
+
+### 3) Graceful Degradation ✅
+- **Implemented behavior**:
+  - No/empty/silent audio returns clear errors.
+  - If Ollama is unavailable, heuristic intent fallback still works.
+  - Summarize/chat/code have safe fallback responses/templates.
+- **Where implemented**:
+  - [agent/stt.py](agent/stt.py) (silent audio + invalid transcript detection)
+  - [agent/intent.py](agent/intent.py) (`heuristic-fallback` planner)
+  - [agent/tools.py](agent/tools.py) (fallback summarize/chat/code)
+  - [app.py](app.py) (user-facing error display)
+- **How to verify**:
+  - Record silence and analyze -> no-speech error.
+  - Stop Ollama and analyze command -> heuristic fallback still returns intents.
+
+### 4) Memory ✅
+- **Implemented behavior**: persistent history of STT, intent, and action events is saved and shown in UI.
+- **Where implemented**:
+  - [agent/memory.py](agent/memory.py) (load/save JSON history)
+  - [app.py](app.py) (Session Memory section)
+  - Memory file: `output/session_memory.json`
+- **How to verify**:
+  - Run multiple commands; refresh app; history remains visible.
+
+### 5) Model Benchmarking ✅
+- **Implemented behavior**: benchmark CLI reports STT/intent timing and outputs.
+- **Where implemented**:
+  - [benchmark_models.py](benchmark_models.py)
+  - [MODEL_BENCHMARK_ARTICLE.md](MODEL_BENCHMARK_ARTICLE.md)
+- **How to verify**:
+  - Run `python benchmark_models.py stt_test.aiff --runs 1`
+  - Confirm report includes avg STT time + avg intent time.
+
+---
+
 ## Deployment / GitHub deliverable
 
 After local validation, push:
