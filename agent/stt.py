@@ -35,7 +35,7 @@ class STTService:
             raise ValueError("No audio received.")
 
         try:
-            return self._transcribe_local(audio_bytes), "local"
+            return self._transcribe_local(audio_bytes, source_name=source_name), "local"
         except Exception as local_err:
             if OPENAI_API_KEY:
                 try:
@@ -46,9 +46,10 @@ class STTService:
                     ) from api_err
             raise RuntimeError(f"Local STT failed and no API fallback configured: {local_err}")
 
-    def _transcribe_local(self, audio_bytes: bytes) -> str:
+    def _transcribe_local(self, audio_bytes: bytes, source_name: str = "input.wav") -> str:
         asr = self._load_local_model()
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as f:
+        suffix = Path(source_name).suffix or ".wav"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as f:
             f.write(audio_bytes)
             f.flush()
             waveform, sample_rate = librosa.load(Path(f.name).as_posix(), sr=16000, mono=True)

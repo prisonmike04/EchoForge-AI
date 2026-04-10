@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from typing import Any
 
 import requests
@@ -103,28 +104,59 @@ class LocalToolExecutor:
         if not raw:
             return {"status": "error", "action": "summarize_text", "message": "No text to summarize."}
 
-        summary = self._ask_ollama(
-            system="You summarize text in 3-5 concise bullet points.",
-            user=f"Summarize:\n\n{raw}",
-        )
+        try:
+            summary = self._ask_ollama(
+                system="You summarize text in 3-5 concise bullet points.",
+                user=f"Summarize:\n\n{raw}",
+            )
+        except Exception:
+            summary = self._naive_summary(raw)
         return {"status": "ok", "action": "summarize_text", "summary": summary}
 
     def _general_chat(self, params: dict[str, Any]) -> dict[str, Any]:
         msg = str(params.get("message", "")).strip()
-        answer = self._ask_ollama(
-            system="You are a concise helpful local AI assistant.",
-            user=msg,
-        )
+        try:
+            answer = self._ask_ollama(
+                system="You are a concise helpful local AI assistant.",
+                user=msg,
+            )
+        except Exception:
+            answer = (
+                "I could not reach the local chat model. "
+                "Please start Ollama and retry, or ask for file-based actions."
+            )
         return {"status": "ok", "action": "general_chat", "response": answer}
 
     def _generate_code(self, prompt: str, language: str) -> str:
-        return self._ask_ollama(
-            system=(
-                "You generate code only. Return only raw source code, no markdown fences. "
-                "Prefer safe, small, runnable snippets."
-            ),
-            user=f"Language: {language}\nTask: {prompt}",
-        )
+        try:
+            return self._ask_ollama(
+                system=(
+                    "You generate code only. Return only raw source code, no markdown fences. "
+                    "Prefer safe, small, runnable snippets."
+                ),
+                user=f"Language: {language}\nTask: {prompt}",
+            )
+        except Exception:
+            return self._template_code(language=language, prompt=prompt)
+
+    def _naive_summary(self, raw: str) -> str:
+        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", raw) if s.strip()]
+        if not sentences:
+            return "- Could not extract meaningful text to summarize."
+        top = sentences[:4]
+        return "\n".join(f"- {s}" for s in top)
+
+    def _template_code(self, language: str, prompt: str) -> str:
+        if language.lower() == "python":
+            return (
+                '"""Auto-generated fallback template because local code model was unavailable."""\n\n'
+                "def main() -> None:\n"
+                f"    task = {prompt!r}\n"
+                "    print(\"Requested task:\", task)\n\n"
+                "if __name__ == \"__main__\":\n"
+                "    main()\n"
+            )
+        return f"# Fallback template\n# Requested task: {prompt}\n"
 
     def _ask_ollama(self, system: str, user: str) -> str:
         response = requests.post(

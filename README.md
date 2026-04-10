@@ -117,6 +117,9 @@ All file operations resolve paths against `output/` and reject path traversal:
   - Otherwise a user-readable error is shown.
 - If Ollama is unavailable:
   - Heuristic intent planning still enables basic operation.
+  - Summarization uses a sentence-based fallback.
+  - Code generation uses a safe template fallback.
+  - General chat returns a clear recovery message.
 - If no speech is detected/unintelligible audio:
   - Clear error appears in UI; no unsafe action is executed.
 
