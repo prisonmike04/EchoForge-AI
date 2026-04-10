@@ -78,6 +78,13 @@ def _render_execution_results(results: list[dict[str, Any]]) -> None:
                         content = file_path.read_text(encoding="utf-8")
                         st.markdown("**File Content**")
                         st.code(content, language=_guess_language(file_path))
+                        st.download_button(
+                            label=f"Download {file_path.name}",
+                            data=content,
+                            file_name=file_path.name,
+                            mime="text/plain",
+                            key=f"download_{idx}_{file_path.name}",
+                        )
                     except Exception as e:
                         st.warning(f"Could not read file content: {e}")
 
