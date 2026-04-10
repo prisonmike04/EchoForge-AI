@@ -33,6 +33,14 @@ with st.sidebar:
     audio_from_mic = st.audio_input("Record from microphone")
     uploaded_file = st.file_uploader("Or upload audio", type=["wav", "mp3", "m4a", "ogg"])
 
+    with st.expander("Mic troubleshooting", expanded=False):
+        st.write("If recording fails with a browser error, try:")
+        st.write("1) Open the app using http://localhost:8501")
+        st.write("2) Allow microphone permission for localhost in your browser")
+        st.write("3) Enable mic for your browser in macOS Privacy settings")
+        st.write("4) Close apps using your mic (Zoom/Meet/Teams)")
+        st.write("5) Use audio upload as fallback (.wav/.mp3/.m4a/.ogg)")
+
     st.divider()
     st.subheader("Safety")
     st.write("All file operations are restricted to the output folder.")
