@@ -53,6 +53,10 @@ class LocalToolExecutor:
 
     def _safe_output_path(self, path_text: str) -> Path:
         rel = Path(path_text).as_posix().lstrip("/")
+        if rel.startswith("output/"):
+            rel = rel[len("output/") :]
+        elif rel == "output":
+            rel = ""
         candidate = (self.output_dir / rel).resolve()
 
         if not str(candidate).startswith(str(self.output_dir)):
@@ -75,6 +79,15 @@ class LocalToolExecutor:
         content = params.get("content", "")
         if summary_result and not content:
             content = summary_result
+
+        if target.exists() and str(content) == "":
+            return {
+                "status": "ok",
+                "action": "create_file",
+                "path": str(target),
+                "bytes_written": 0,
+                "note": "File already exists; skipped empty overwrite.",
+            }
 
         target.write_text(str(content), encoding="utf-8")
         return {
@@ -129,15 +142,27 @@ class LocalToolExecutor:
 
     def _generate_code(self, prompt: str, language: str) -> str:
         try:
-            return self._ask_ollama(
+            raw = self._ask_ollama(
                 system=(
                     "You generate code only. Return only raw source code, no markdown fences. "
                     "Prefer safe, small, runnable snippets."
                 ),
                 user=f"Language: {language}\nTask: {prompt}",
             )
+            return self._strip_code_fences(raw)
         except Exception:
             return self._template_code(language=language, prompt=prompt)
+
+    def _strip_code_fences(self, text: str) -> str:
+        s = text.strip()
+        if s.startswith("```"):
+            lines = s.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            return "\n".join(lines).strip()
+        return s
 
     def _naive_summary(self, raw: str) -> str:
         sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", raw) if s.strip()]
