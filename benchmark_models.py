@@ -8,6 +8,31 @@ from agent.intent import IntentService
 from agent.stt import STTService
 
 
+def _resolve_audio_path(audio_arg: str) -> Path:
+    candidate = Path(audio_arg)
+    if candidate.exists():
+        return candidate
+
+    script_dir = Path(__file__).resolve().parent
+    name_only = Path(audio_arg).name
+    fallbacks = [
+        script_dir / "output" / name_only,
+        Path.cwd() / "output" / name_only,
+    ]
+
+    for fb in fallbacks:
+        if fb.exists():
+            return fb
+
+    checked = [candidate, *fallbacks]
+    checked_list = "\n".join(f"- {p}" for p in checked)
+    raise FileNotFoundError(
+        "Audio file not found. Checked:\n"
+        f"{checked_list}\n\n"
+        "Tip: pass either 'output/<file>' or just '<file>' if it exists inside output/."
+    )
+
+
 def benchmark(audio_path: Path, runs: int = 1) -> None:
     stt = STTService()
     intent = IntentService()
@@ -44,4 +69,4 @@ if __name__ == "__main__":
     parser.add_argument("--runs", type=int, default=1)
     args = parser.parse_args()
 
-    benchmark(Path(args.audio), runs=args.runs)
+    benchmark(_resolve_audio_path(args.audio), runs=args.runs)
