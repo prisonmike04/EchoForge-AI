@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import re
 import tempfile
 from pathlib import Path
 
@@ -56,11 +57,13 @@ class STTService:
 
         if waveform.size == 0:
             raise ValueError("Audio appears empty or unreadable.")
+        if self._is_effectively_silent(waveform):
+            raise ValueError("No speech detected in audio. Please speak and try again.")
 
         result = asr({"raw": np.asarray(waveform), "sampling_rate": sample_rate})
         text = result.get("text", "").strip()
-        if not text:
-            raise ValueError("No speech detected in audio.")
+        if self._is_invalid_transcript(text):
+            raise ValueError("No clear speech detected in audio. Please try again.")
         return text
 
     def _transcribe_openai(self, audio_bytes: bytes, source_name: str) -> str:
@@ -73,6 +76,24 @@ class STTService:
         )
         response.raise_for_status()
         text = response.json().get("text", "").strip()
-        if not text:
-            raise ValueError("Empty transcript from API.")
+        if self._is_invalid_transcript(text):
+            raise ValueError("No clear speech detected in audio (API STT). Please try again.")
         return text
+
+    @staticmethod
+    def _is_effectively_silent(waveform: np.ndarray) -> bool:
+        if waveform.size == 0:
+            return True
+        rms = float(np.sqrt(np.mean(np.square(waveform))))
+        peak = float(np.max(np.abs(waveform)))
+        return rms < 5e-4 and peak < 8e-3
+
+    @staticmethod
+    def _is_invalid_transcript(text: str) -> bool:
+        if not text:
+            return True
+        cleaned = text.strip()
+        if cleaned in {".", "..", "...", "!", "?", "-", "_"}:
+            return True
+        alnum = re.sub(r"[^A-Za-z0-9]+", "", cleaned)
+        return len(alnum) == 0
