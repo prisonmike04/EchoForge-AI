@@ -103,7 +103,7 @@ class IntentService:
 
         wants_summary = "summar" in t
         wants_file = any(k in t for k in ["create file", "save", ".py", ".txt", "write to file"])
-        wants_code = any(k in t for k in ["python", "code", "function", "script", "class"])
+        wants_code = any(k in t for k in ["code", "function", "script", "class", "implement", "generate"])
 
         file_name = self._extract_filename(t)
 
@@ -111,11 +111,19 @@ class IntentService:
             actions.append(ParsedAction(intent="summarize_text", params={"content": transcript}))
 
         if wants_code:
+            target_path = file_name or "generated_code.py"
+            if "create" in t and "file" in t:
+                actions.append(
+                    ParsedAction(
+                        intent="create_file",
+                        params={"path": target_path, "content": ""},
+                    )
+                )
             actions.append(
                 ParsedAction(
                     intent="write_code",
                     params={
-                        "path": file_name or "generated_code.py",
+                        "path": target_path,
                         "content": transcript,
                         "language": "python" if "python" in t else "text",
                     },
