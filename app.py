@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
@@ -10,6 +11,81 @@ from agent.memory import SessionMemory
 from agent.pipeline import VoiceAgentPipeline
 from agent.stt import STTService
 from agent.tools import LocalToolExecutor
+
+
+def _guess_language(path: Path) -> str:
+    ext = path.suffix.lower()
+    return {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".md": "markdown",
+        ".json": "json",
+        ".txt": "text",
+    }.get(ext, "text")
+
+
+def _result_explanation(res: dict[str, Any]) -> str:
+    if res.get("status") != "ok":
+        return f"Execution failed: {res.get('message', 'Unknown error')}"
+
+    action = res.get("action", "")
+    if action == "write_code":
+        return "Code generation succeeded and the code has been saved to the target file."
+    if action == "create_file":
+        note = res.get("note")
+        if note:
+            return f"File operation completed. {note}"
+        return "File was created successfully in the output folder."
+    if action == "create_folder":
+        return "Folder was created successfully in the output folder."
+    if action == "summarize_text":
+        return "Text was summarized successfully."
+    if action == "general_chat":
+        return "Chat response generated successfully."
+    return "Action completed successfully."
+
+
+def _render_execution_results(results: list[dict[str, Any]]) -> None:
+    st.markdown("### Execution Results")
+    if not results:
+        st.info("No execution results yet.")
+        return
+
+    for idx, res in enumerate(results, start=1):
+        with st.expander(f"Result {idx}: {res.get('action', res.get('intent', 'action'))}", expanded=True):
+            if res.get("status") == "ok":
+                st.success("Status: ok")
+            else:
+                st.error("Status: error")
+
+            st.write(_result_explanation(res))
+
+            if res.get("action") == "summarize_text":
+                st.markdown("**Summary Output**")
+                st.write(res.get("summary", ""))
+
+            if res.get("action") == "general_chat":
+                st.markdown("**Assistant Response**")
+                st.write(res.get("response", ""))
+
+            path_text = res.get("path")
+            if path_text:
+                file_path = Path(path_text)
+                st.markdown(f"**Saved Path**: {file_path}")
+                if file_path.exists() and file_path.is_file():
+                    try:
+                        content = file_path.read_text(encoding="utf-8")
+                        st.markdown("**File Content**")
+                        st.code(content, language=_guess_language(file_path))
+                    except Exception as e:
+                        st.warning(f"Could not read file content: {e}")
+
+            if res.get("preview"):
+                st.markdown("**Generated Preview**")
+                st.code(str(res.get("preview")), language="text")
+
+            st.caption(str(res))
 
 st.set_page_config(page_title="EchoForge AI", page_icon="🎙️", layout="wide")
 st.title("🎙️ EchoForge AI - Voice-Controlled Local Agent")
@@ -27,6 +103,8 @@ if "analysis" not in st.session_state:
     st.session_state.analysis = None
 if "pending_actions" not in st.session_state:
     st.session_state.pending_actions = []
+if "execution_results" not in st.session_state:
+    st.session_state.execution_results = []
 
 with st.sidebar:
     st.header("Input Options")
@@ -74,6 +152,7 @@ if analyze_clicked:
             analysis = agent.analyze_audio(input_bytes, source_name=source_name)
             st.session_state.analysis = analysis
             st.session_state.pending_actions = analysis.actions
+            st.session_state.execution_results = []
 
 analysis = st.session_state.analysis
 
@@ -130,13 +209,10 @@ if execute_clicked:
         else:
             with st.spinner("Executing actions..."):
                 results = agent.execute_actions(actions_to_run)
+            st.session_state.execution_results = results
 
-            st.markdown("### Execution Results")
-            for res in results:
-                if res.get("status") == "ok":
-                    st.success(res)
-                else:
-                    st.error(res)
+if st.session_state.execution_results:
+    _render_execution_results(st.session_state.execution_results)
 
 st.divider()
 st.subheader("Session Memory")
