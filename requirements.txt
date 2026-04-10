@@ -1,0 +1,8 @@
+streamlit>=1.40.0
+transformers>=4.45.0
+torch>=2.3.0
+librosa>=0.10.2
+soundfile>=0.12.1
+numpy>=1.26.0
+requests>=2.32.3
+python-dotenv>=1.0.1
